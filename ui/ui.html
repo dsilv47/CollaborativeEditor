@@ -29,11 +29,11 @@
             const source = new EventSource(url);
             source.addEventListener('sync', event => {
                 console.log("SYNC");
-                console.log(event);
+                console.log(event.data);
             });
             source.addEventListener('update', event => {
                 console.log("UPDATE");
-                console.log(event);
+                console.log(event.data);
             });
         }
     </script>

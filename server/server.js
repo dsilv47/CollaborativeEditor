@@ -7,20 +7,20 @@ app.get("/", (req, res) => {
 });
 
 app.get("/library", (req, res) => {
-    res.header("X-CSE356", "6306d53f58d8bb3ef7f6be55");
+    res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
     res.sendFile("/etc/nginx/project/example-crdt-main/dist/crdt.js");
 });
 
 app.get("/api/connect/:id", (req, res) => {
     console.log(req.params.id);
-    res.set({
+    res.writeHead(200, {
       'Cache-Control': 'no-cache',
       'Content-Type': 'text/event-stream',
-      'Connection': 'keep-alive'
+      'X-Accel-Buffering': 'no'
     });
-    res.flushHeaders();
 
-    res.write('retry: 10000\n\n');
+    res.write("event: sync\n");
+    res.write("data: test\n\n");
 });
 
 app.post("api/op/:id", (req, res) => {
