@@ -1,13 +1,15 @@
 const express = require('express');
+const Y = require('yjs');
 const app = express();
 app.listen(3000);
 
 let docList = {};
 
 app.use(express.json());
+app.use(express.static("/etc/nginx/project/build"));
 
 app.get("/", (req, res) => {
-    res.sendFile("/etc/nginx/project/ui/ui.html");
+    res.sendFile("/etc/nginx/project/build/index.html");
 });
 
 app.get("/library", (req, res) => {
@@ -16,24 +18,27 @@ app.get("/library", (req, res) => {
 });
 
 app.get("/api/connect/:id", (req, res) => {
-    //console.log(req.params.id);
     res.writeHead(200, {
       'Cache-Control': 'no-cache',
       'Content-Type': 'text/event-stream',
-      'X-Accel-Buffering': 'no'
+      'X-Accel-Buffering': 'no',
     });
 
     res.write("event: sync\n");
     let docContents;
     if (docList[req.params.id]) {
-        docContents = docList[req.params.id].contents;
+        let ydoc = docList[req.params.id].crdtObj;
+        let ytext = ydoc.getText(req.params.id);
+        docContents = ytext.toDelta();
     }
     else {
-        docList[req.params.id] = { "contents": "", "resObjs": [] };
-        docContents = "";
+        let ydoc = new Y.Doc();
+        let ytext = ydoc.getText(req.params.id);
+        docList[req.params.id] = { "crdtObj": ydoc, "resObjs": [] };
+        docContents = ytext.toDelta();
     }
     docList[req.params.id].resObjs.push(res);
-    res.write("data: " + docContents + "\n\n");
+    res.write("data: " + JSON.stringify(docContents) + "\n\n");
     
     res.on("close", function() {
         docList[req.params.id].resObjs = docList[req.params.id].resObjs.filter(item => item != res);
@@ -41,9 +46,11 @@ app.get("/api/connect/:id", (req, res) => {
 });
 
 app.post("/api/op/:id", (req, res) => {
-    let payload = req.body;
-    let update = [{"insert": "hello"}];
+    let update = req.body;
     if (docList[req.params.id]) {
+        let ydoc = docList[req.params.id].crdtObj;
+        let ytext = ydoc.getText(req.params.id);
+        ytext.applyDelta(update);
         for (let i = 0; i < docList[req.params.id].resObjs.length; i++) {
             let resObj = docList[req.params.id].resObjs[i];
             resObj.write("event: update\n");
