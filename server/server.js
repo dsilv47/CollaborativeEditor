@@ -22,6 +22,7 @@ app.get("/api/connect/:id", (req, res) => {
       'Cache-Control': 'no-cache',
       'Content-Type': 'text/event-stream',
       'X-Accel-Buffering': 'no',
+      'Connection': 'keep-alive',
     });
 
     res.write("event: sync\n");
@@ -57,4 +58,5 @@ app.post("/api/op/:id", (req, res) => {
             resObj.write("data: " + JSON.stringify(update) + "\n\n");
         }
     }
+    res.json({"status":"ok"});
 });
