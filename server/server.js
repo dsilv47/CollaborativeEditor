@@ -29,15 +29,15 @@ app.get("/api/connect/:id", (req, res) => {
     let docContents;
     if (docList[req.params.id]) {
         let ydoc = docList[req.params.id].crdtObj;
-        let ytext = ydoc.getText(req.params.id);
-        docContents = ytext.toDelta();
+        docContents = Y.encodeStateAsUpdate(ydoc);
     }
     else {
         let ydoc = new Y.Doc();
         let ytext = ydoc.getText(req.params.id);
         docList[req.params.id] = { "crdtObj": ydoc, "resObjs": [] };
-        docContents = ytext.toDelta();
+        docContents = Y.encodeStateAsUpdate(ydoc);
     }
+    docContents = Array.from(docContents);
     docList[req.params.id].resObjs.push(res);
     res.write("data: " + JSON.stringify(docContents) + "\n\n");
     
@@ -50,8 +50,7 @@ app.post("/api/op/:id", (req, res) => {
     let update = req.body;
     if (docList[req.params.id]) {
         let ydoc = docList[req.params.id].crdtObj;
-        let ytext = ydoc.getText(req.params.id);
-        ytext.applyDelta(update);
+        Y.applyUpdate(ydoc, Uint8Array.from(update));
         for (let i = 0; i < docList[req.params.id].resObjs.length; i++) {
             let resObj = docList[req.params.id].resObjs[i];
             resObj.write("event: update\n");
