@@ -7,14 +7,15 @@ let docList = {};
 
 app.use(express.json());
 app.use(express.static("/etc/nginx/project/build"));
+app.use(express.static("/etc/nginx/project/library/dist"));
 
 app.get("/", (req, res) => {
     res.sendFile("/etc/nginx/project/build/index.html");
 });
 
-app.get("/library", (req, res) => {
+app.get("/library/crdt.js", (req, res) => {
     res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
-    res.sendFile("/etc/nginx/project/example-crdt-main/dist/crdt.js");
+    res.sendFile("/etc/nginx/project/library/dist/crdt.js");
 });
 
 app.get("/api/connect/:id", (req, res) => {
