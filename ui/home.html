@@ -16,7 +16,7 @@
                 let doc = document.getElementById("edit-" + i);
                 let link = document.createElement("a");
                 link.href = "/edit/" + response[i].id;
-                link.innerHTML = "Edit Document with ID: " + response[i].id;
+                link.innerHTML = "Edit Document: " + response[i].name;
                 let delButton = document.createElement("input");
                 delButton.id = "del-" + response[i].id;
                 delButton.type = "button";
@@ -32,6 +32,7 @@
                         },
                         body: JSON.stringify(collection)
                     });
+                    location.reload();
                 };
                 doc.appendChild(link);
                 doc.appendChild(delButton);
@@ -44,6 +45,7 @@
             let response = await fetch("/users/logout", {
                 method: 'POST',
             });
+            location.reload()
         }
 
         async function createDoc() {
@@ -57,6 +59,7 @@
                 },
                 body: JSON.stringify(newDocID)
             });
+            location.reload();
         }
     </script>
 </head>

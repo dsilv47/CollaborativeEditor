@@ -88,6 +88,7 @@ app.post("/api/op/:id", (req, res) => {
     if (docList[req.params.id]) {
         let ydoc = docList[req.params.id].crdtObj;
         Y.applyUpdate(ydoc, Uint8Array.from(update));
+        docList[req.params.id].lastModified = new Date();
         for (let i = 0; i < docList[req.params.id].resObjs.length; i++) {
             let resObj = docList[req.params.id].resObjs[i];
             resObj.write("event: update\n");
@@ -156,10 +157,6 @@ app.post("/users/login", async (req, res) => {
     res.json({ name: user.name });
 });
 
-app.get("/users/logout", (req, res) => {
-    res.sendFile("/etc/nginx/project/ui/logout.html");
-});
-
 app.post("/users/logout", async (req, res) => {
     req.session = null;
     res.json({status: "OK" });
@@ -218,9 +215,15 @@ app.get("/collection/list", async (req, res) => {
     if (!req.session.user) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
-    let docs = [];
+    let sortDocs = [];
     for (let docKey in docList) {
         let doc = docList[docKey];
+        sortDocs.push(doc);
+    }
+    sortDocs = sortDocs.sort((a, b) => b.lastModified-a.lastModified);
+    let docs = [];
+    for (let i = 0; i < Math.min(10, sortDocs.length); i++) {
+        let doc = sortDocs[i];
         docs.push({id: doc.docID, name: doc.name});
     }
     res.json(docs);
@@ -253,7 +256,8 @@ app.get("/edit/:id", (req, res) => {
     if (!req.session.user) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
-    console.log(req.params.id);
+    app.use(express.static("/etc/nginx/project/build"));
+    res.sendFile("/etc/nginx/project/build/index.html");
 });
 
 app.get("/home", async (req, res) => {
