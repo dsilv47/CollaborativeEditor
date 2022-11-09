@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <script>
+        let xhr = new XMLHttpRequest();
+        xhr.open('get', '/collection/list');
+        xhr.send();
+
+        xhr.onload = function() {
+            let response = JSON.parse(xhr.response);
+            for (let i = 0; i < response.length; i++) {
+                let doc = document.getElementById("edit-" + i);
+                let link = document.createElement("a");
+                link.href = "/edit/" + response[i].id;
+                link.innerHTML = "Edit Document with ID: " + response[i].id;
+                let delButton = document.createElement("input");
+                delButton.id = "del-" + i;
+                delButton.type = "button";
+                delButton.value = "Delete Document";
+                delButton.onclick = async function deleteDoc() {
+                    let collection = {
+                        id: this.id.substring(4)
+                    }
+                    let fetchres = await fetch("/collection/delete", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(collection)
+                    });
+                };
+                doc.appendChild(link);
+                doc.appendChild(delButton);
+                doc.appendChild(document.createElement("br"));
+            }
+        }
+    </script>
+    <script>
+        async function logOut() {
+            let response = await fetch("/users/logout", {
+                method: 'POST',
+            });
+        }
+    </script>
+</head>
+<body>
+    <div>FORM FOR /COLLECTION/CREATE</div>
+    <div id="edit-0"></div>
+    <div id="edit-1"></div>
+    <div id="edit-2"></div>
+    <div id="edit-3"></div>
+    <div id="edit-4"></div>
+    <div id="edit-5"></div>
+    <div id="edit-6"></div>
+    <div id="edit-7"></div>
+    <div id="edit-8"></div>
+    <div id="edit-9"></div>
+    <input type="button" value="Log Out" onclick="logOut()">
+</body>
+</html>

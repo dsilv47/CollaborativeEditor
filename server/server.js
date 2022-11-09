@@ -32,8 +32,9 @@ mongo.connect("mongodb://localhost:27017", { useNewUrlParser: true, useUnifiedTo
 
 app.get("/", (req, res) => {
     if (req.session.user) {
-        app.use(express.static("/etc/nginx/project/build"));
-        res.sendFile("/etc/nginx/project/build/index.html");
+        //app.use(express.static("/etc/nginx/project/build"));
+        //res.sendFile("/etc/nginx/project/build/index.html");
+        res.redirect("/home");
     }
     else {
         res.sendFile("/etc/nginx/project/ui/login.html");
@@ -201,6 +202,7 @@ app.post("/collection/delete", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let { id } = req.body;
+    console.log("DELETE: " + id);
 });
 
 app.get("/collection/list", async (req, res) => {
@@ -208,6 +210,7 @@ app.get("/collection/list", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let docs = await collections.find({});
+    res.json([{id: 0, name: "sup"}, {id: 1, name: "hello"}]);
 });
 
 app.post("/media/upload", async (req, res) => {
@@ -228,6 +231,7 @@ app.get("/edit/:id", (req, res) => {
     if (!req.session.user) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
+    console.log(req.params.id);
 });
 
 app.get("/home", async (req, res) => {
@@ -235,4 +239,5 @@ app.get("/home", async (req, res) => {
     if (!req.session.user) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
+    res.sendFile("/etc/nginx/project/ui/home.html");
 });
