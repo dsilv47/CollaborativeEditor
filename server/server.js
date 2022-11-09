@@ -1,5 +1,6 @@
 const express = require('express');
 const mongo = require("mongodb").MongoClient;
+const ObjectId = require('mongodb').ObjectID;
 const { exec } = require('child_process');
 const session = require("cookie-session");
 const Y = require('yjs');
@@ -195,6 +196,19 @@ app.post("/collection/create", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let { name } = req.body;
+    let ydoc = new Y.Doc();
+    let ytext = ydoc.getText(name);
+    //let storedObj = { "crdtObj": ydoc, "resObjs": [] };
+    let storedObj = {"crdtObj": name, "resObjs": [] };
+    try {
+        const insertResult = await collections.insertOne(storedObj);
+        let mongoID = insertResult.insertedId.toString();
+        res.json({ id: mongoID });
+    } catch (e) {
+        console.log(e);
+        res.json({error: true, message: "Mongo Error"});
+        return;
+    };
 });
 
 app.post("/collection/delete", async (req, res) => {
@@ -202,7 +216,14 @@ app.post("/collection/delete", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let { id } = req.body;
-    console.log("DELETE: " + id);
+    try {
+        await collections.findOneAndDelete({ _id: ObjectId(id) });
+        res.json({ status: "OK" });
+    } catch (e) {
+        console.log(e);
+        res.json({error: true, message: "Mongo Error"});
+        return;
+    };
 });
 
 app.get("/collection/list", async (req, res) => {
@@ -210,7 +231,7 @@ app.get("/collection/list", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let docs = await collections.find({});
-    res.json([{id: 0, name: "sup"}, {id: 1, name: "hello"}]);
+    res.json([{id: "636b5163413ab041a7712de1", name: "d"}, {id: 1, name: "hello"}]);
 });
 
 app.post("/media/upload", async (req, res) => {

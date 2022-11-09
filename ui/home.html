@@ -18,7 +18,7 @@
                 link.href = "/edit/" + response[i].id;
                 link.innerHTML = "Edit Document with ID: " + response[i].id;
                 let delButton = document.createElement("input");
-                delButton.id = "del-" + i;
+                delButton.id = "del-" + response[i].id;
                 delButton.type = "button";
                 delButton.value = "Delete Document";
                 delButton.onclick = async function deleteDoc() {
@@ -45,10 +45,27 @@
                 method: 'POST',
             });
         }
+
+        async function createDoc() {
+            let newDocID = {
+                name: document.getElementById("docid").value
+            }
+            let response = await fetch("/collection/create", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newDocID)
+            });
+        }
     </script>
 </head>
 <body>
-    <div>FORM FOR /COLLECTION/CREATE</div>
+    <div>
+        <label for="docid">Create New Document ID:</label>
+        <input type="text" id="docid" name="docid">
+        <input type="button" value="Create" onclick="createDoc()"></input>
+    </div>
     <div id="edit-0"></div>
     <div id="edit-1"></div>
     <div id="edit-2"></div>
