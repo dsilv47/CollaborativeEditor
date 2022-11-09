@@ -3,6 +3,8 @@ const mongo = require("mongodb").MongoClient;
 const ObjectId = require('mongodb').ObjectID;
 const { exec } = require('child_process');
 const session = require("cookie-session");
+const multer  = require('multer');
+const upload = multer({ dest: '/etc/nginx/media/access/' });
 const Y = require('yjs');
 const app = express();
 app.listen(3000);
@@ -63,17 +65,12 @@ app.get("/api/connect/:id", (req, res) => {
     });
 
     res.write("event: sync\n");
-    let docContents;
-    if (docList[req.params.id]) {
-        let ydoc = docList[req.params.id].crdtObj;
-        docContents = Y.encodeStateAsUpdate(ydoc);
+    if (!docList[req.params.id]) {
+        res.json({error: true, message: "No document with given ID exists"});
+        return;
     }
-    else {
-        let ydoc = new Y.Doc();
-        let ytext = ydoc.getText(req.params.id);
-        docList[req.params.id] = { "crdtObj": ydoc, "resObjs": [] };
-        docContents = Y.encodeStateAsUpdate(ydoc);
-    }
+    let ydoc = docList[req.params.id].crdtObj;
+    let docContents = Y.encodeStateAsUpdate(ydoc);
     docContents = Array.from(docContents);
     docList[req.params.id].resObjs.push(res);
     res.write("data: " + JSON.stringify(docContents) + "\n\n");
@@ -198,17 +195,9 @@ app.post("/collection/create", async (req, res) => {
     let { name } = req.body;
     let ydoc = new Y.Doc();
     let ytext = ydoc.getText(name);
-    //let storedObj = { "crdtObj": ydoc, "resObjs": [] };
-    let storedObj = {"crdtObj": name, "resObjs": [] };
-    try {
-        const insertResult = await collections.insertOne(storedObj);
-        let mongoID = insertResult.insertedId.toString();
-        res.json({ id: mongoID });
-    } catch (e) {
-        console.log(e);
-        res.json({error: true, message: "Mongo Error"});
-        return;
-    };
+    let docID = Math.random().toString().slice(2,11);
+    docList[docID] = { "docID": docID, "name": name, "crdtObj": ydoc, "resObjs": [], "lastModified": new Date() };
+    res.json({id: docID});
 });
 
 app.post("/collection/delete", async (req, res) => {
@@ -216,28 +205,40 @@ app.post("/collection/delete", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let { id } = req.body;
-    try {
-        await collections.findOneAndDelete({ _id: ObjectId(id) });
-        res.json({ status: "OK" });
-    } catch (e) {
-        console.log(e);
-        res.json({error: true, message: "Mongo Error"});
-        return;
-    };
+    if (docList[id]) {
+        for (res in docList[id].resObjs) {
+            res.end();
+        }
+        delete docList[id];
+    }
+    res.json({status: "OK"});
 });
 
 app.get("/collection/list", async (req, res) => {
     if (!req.session.user) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
-    let docs = await collections.find({});
-    res.json([{id: "636b5163413ab041a7712de1", name: "d"}, {id: 1, name: "hello"}]);
+    let docs = [];
+    for (let docKey in docList) {
+        let doc = docList[docKey];
+        docs.push({id: doc.docID, name: doc.name});
+    }
+    res.json(docs);
 });
 
-app.post("/media/upload", async (req, res) => {
+app.get("/media/upload", (req, res) => {
+    res.sendFile("/etc/nginx/project/ui/uploadmedia.html");
+});
+
+app.post("/media/upload", upload.single('file'), async (req, res) => {
     if (!req.session.user) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
+    let file = req.file;
+    if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
+        res.json({error: true, message: "Invalid MIME type"});
+    }
+    res.download(file.path, file);
 });
 
 app.get("/media/access/:mediaid", async (req, res) => {
