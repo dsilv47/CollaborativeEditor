@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signup</title>
+    <script>
+        async function signUp() {
+            let user = {
+                name: document.getElementById("name").value,
+                email: document.getElementById("email").value,
+                password: document.getElementById("password").value
+            };
+            let response = await fetch("/users/signup", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(user)
+            });
+            console.log(response.json());
+        }
+    </script>
+</head>
+<body>
+    <label for="name">Name:</label><br>
+    <input type="text" id="name" name="name"><br>
+    <label for="name">Email:</label><br>
+    <input type="text" id="email" name="email"><br>
+    <label for="name">Password:</label><br>
+    <input type="text" id="password" name="password"><br>
+    <input type="button" value="Sign Up" onclick="signUp()">
+</body>
+</html>
