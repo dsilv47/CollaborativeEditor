@@ -76,7 +76,9 @@ app.get("/api/connect/:id", (req, res) => {
     res.write("data: " + JSON.stringify(docContents) + "\n\n");
     
     res.on("close", function() {
-        docList[req.params.id].resObjs = docList[req.params.id].resObjs.filter(item => item != res);
+        if (docList[req.params.id]) {
+            docList[req.params.id].resObjs = docList[req.params.id].resObjs.filter(item => item != res);
+        }
     });
 });
 
@@ -203,8 +205,9 @@ app.post("/collection/delete", async (req, res) => {
     }
     let { id } = req.body;
     if (docList[id]) {
-        for (res in docList[id].resObjs) {
-            res.end();
+        for (let i in docList[id].resObjs) {
+            let resObj = docList[id].resObjs[i];
+            resObj.end();
         }
         delete docList[id];
     }
