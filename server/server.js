@@ -1,11 +1,24 @@
 const express = require('express');
+const bodyParser = require('body-parser'); 
 const mongo = require("mongodb").MongoClient;
 const ObjectId = require('mongodb').ObjectID;
 const { exec } = require('child_process');
 const session = require("cookie-session");
 const multer  = require('multer');
-const upload = multer({ dest: '/etc/nginx/media/access/' });
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, '/etc/nginx/project/server/media')
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  }
+});
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: "50mb" }
+});
 const Y = require('yjs');
+const fs = require('fs');
 const app = express();
 app.listen(3000);
 
@@ -13,6 +26,7 @@ let docList = {};
 
 let db, users, collections;
 
+app.use(bodyParser.json({limit:'50mb'})); 
 app.use(express.json());
 app.use(session({ name: 'session', keys: ['key1', 'key2'] }));
 //app.use(express.static("/etc/nginx/project/build"));
@@ -281,10 +295,6 @@ app.get("/collection/list", async (req, res) => {
     res.json(docs);
 });
 
-app.get("/media/upload", (req, res) => {
-    res.sendFile("/etc/nginx/project/ui/uploadmedia.html");
-});
-
 app.post("/media/upload", upload.single('file'), async (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
@@ -293,7 +303,11 @@ app.post("/media/upload", upload.single('file'), async (req, res) => {
     if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
         res.json({error: true, message: "Invalid MIME type"});
     }
-    res.download(file.path, file);
+    fs.readFile(file.path, 'base64', function (err, data) {
+        if (err) console.log(err);
+        //if (data) console.log(data);
+    });
+    res.json({mediaid: file.originalname});
 });
 
 app.get("/media/access/:mediaid", async (req, res) => {
@@ -301,7 +315,7 @@ app.get("/media/access/:mediaid", async (req, res) => {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let mediaid = req.params.mediaid;
-    res.sendFile("/etc/nginx/media/access/" + mediaid);
+    res.sendFile("/etc/nginx/project/server/media/" + mediaid);
 });
 
 app.get("/edit/:id", (req, res) => {
