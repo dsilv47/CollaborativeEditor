@@ -31,7 +31,8 @@ app.use(express.json());
 app.use(session({
     secret: "356 lets go",
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: true,
+    cookie: { secure: false, expires: new Date(Date.now() + 604800000) }
 }));
 //app.use(express.static("/etc/nginx/project/build"));
 //app.use(express.static("/etc/nginx/project/library/dist"));
