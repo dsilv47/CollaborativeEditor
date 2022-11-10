@@ -3,11 +3,11 @@ const bodyParser = require('body-parser');
 const mongo = require("mongodb").MongoClient;
 const ObjectId = require('mongodb').ObjectID;
 const { exec } = require('child_process');
-const session = require("cookie-session");
+const session = require("express-session");
 const multer  = require('multer');
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, '/etc/nginx/project/server/media')
+    cb(null, '/etc/nginx/media/access')
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname);
@@ -28,7 +28,11 @@ let db, users, collections;
 
 app.use(bodyParser.json({limit:'50mb'})); 
 app.use(express.json());
-app.use(session({ name: 'session', keys: ['key1', 'key2'] }));
+app.use(session({
+    secret: "356 lets go",
+    resave: false,
+    saveUninitialized: true
+}));
 //app.use(express.static("/etc/nginx/project/build"));
 //app.use(express.static("/etc/nginx/project/library/dist"));
 
@@ -62,6 +66,7 @@ app.get("/library/crdt.js", async (req, res) => {
     await res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     app.use(express.static("/etc/nginx/project/library/dist"));
     res.sendFile("/etc/nginx/project/library/dist/crdt.js");
@@ -70,6 +75,11 @@ app.get("/library/crdt.js", async (req, res) => {
 app.get("/api/connect/:id", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
+    }
+    if (!docList[req.params.id]) {
+        res.json({error: true, message: "No document with given ID exists"});
+        return;
     }
     res.writeHead(200, {
       'Cache-Control': 'no-cache',
@@ -79,10 +89,6 @@ app.get("/api/connect/:id", (req, res) => {
     });
 
     res.write("event: sync\n");
-    if (!docList[req.params.id]) {
-        res.json({error: true, message: "No document with given ID exists"});
-        return;
-    }
     let ydoc = docList[req.params.id].crdtObj;
     let docContents = Y.encodeStateAsUpdate(ydoc);
     docContents = Array.from(docContents);
@@ -104,11 +110,11 @@ app.get("/api/connect/:id", (req, res) => {
     res.on("close", function() {
         if (docList[req.params.id]) {
             docList[req.params.id].resObjs = docList[req.params.id].resObjs.filter(item => item != res);
-            if (docList[req.params.id].cursors[req.session.id]) {
-                delete docList[req.params.id].cursors[req.session.id];
+            if (docList[req.params.id].cursors[req.session.email]) {
+                delete docList[req.params.id].cursors[req.session.email];
             }
             let obj = {
-                session_id: req.session.id,
+                session_id: req.session.email,
                 name: req.session.name,
                 cursor: {}
             };
@@ -124,6 +130,7 @@ app.get("/api/connect/:id", (req, res) => {
 app.post("/api/op/:id", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let update = req.body;
     if (docList[req.params.id]) {
@@ -142,10 +149,11 @@ app.post("/api/op/:id", (req, res) => {
 app.post("/api/presence/:id", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let { index, length } = req.body;
     let obj = {
-        session_id: req.session.id,
+        session_id: req.session.email,
         name: req.session.name,
         cursor: {
             index: index,
@@ -154,11 +162,11 @@ app.post("/api/presence/:id", (req, res) => {
     };
     if (docList[req.params.id]) {
         let cursors = docList[req.params.id].cursors;
-        if (cursors[req.session.id]) {
-            cursors[req.session.id].cursor = {index: index, length: length};
+        if (cursors[req.session.email]) {
+            cursors[req.session.email].cursor = {index: index, length: length};
         }
         else {
-            cursors[req.session.id] = obj;
+            cursors[req.session.email] = obj;
         }
 
         for (let i = 0; i < docList[req.params.id].resObjs.length; i++) {
@@ -216,14 +224,20 @@ app.post("/users/login", async (req, res) => {
     }
 
     req.session.name = user.name;
-    req.session.id = user.email;
+    req.session.email = user.email;
+    req.session.save();
 
     res.cookie('name', user.name);
     res.json({ name: user.name });
 });
 
-app.post("/users/logout", async (req, res) => {
-    req.session = null;
+app.post("/users/logout", (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            res.json({status: "ERROR"});
+            return;
+        }
+    });
     res.json({status: "OK" });
 });
 
@@ -236,10 +250,12 @@ app.get("/users/verify", async (req, res) => {
     let user = await users.findOne({ email: email });
     if (!user || user.verifyKey !== key) {
         res.json({error: true, message: "Login Error"});
+        return;
     }
     else {
         let updatedUsers = await users.findOneAndUpdate({email: email}, { $set: { verified: true } });
         res.json({ status: "OK" });
+        return;
     }
 });
 
@@ -250,9 +266,10 @@ function sendEmail(email, key) {
     //console.log(emailLink);
 }
 
-app.post("/collection/create", async (req, res) => {
+app.post("/collection/create", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let { name } = req.body;
     let ydoc = new Y.Doc();
@@ -262,9 +279,10 @@ app.post("/collection/create", async (req, res) => {
     res.json({id: docID});
 });
 
-app.post("/collection/delete", async (req, res) => {
+app.post("/collection/delete", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let { id } = req.body;
     if (docList[id]) {
@@ -277,9 +295,10 @@ app.post("/collection/delete", async (req, res) => {
     res.json({status: "OK"});
 });
 
-app.get("/collection/list", async (req, res) => {
+app.get("/collection/list", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let sortDocs = [];
     for (let docKey in docList) {
@@ -295,13 +314,15 @@ app.get("/collection/list", async (req, res) => {
     res.json(docs);
 });
 
-app.post("/media/upload", upload.single('file'), async (req, res) => {
+app.post("/media/upload", upload.single('file'), (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let file = req.file;
     if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
         res.json({error: true, message: "Invalid MIME type"});
+        return;
     }
     fs.readFile(file.path, 'base64', function (err, data) {
         if (err) console.log(err);
@@ -310,17 +331,19 @@ app.post("/media/upload", upload.single('file'), async (req, res) => {
     res.json({mediaid: file.originalname});
 });
 
-app.get("/media/access/:mediaid", async (req, res) => {
+app.get("/media/access/:mediaid", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     let mediaid = req.params.mediaid;
-    res.sendFile("/etc/nginx/project/server/media/" + mediaid);
+    res.sendFile("/etc/nginx/media/access/" + mediaid);
 });
 
 app.get("/edit/:id", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     app.use(express.static("/etc/nginx/project/build"));
     res.sendFile("/etc/nginx/project/build/index.html");
@@ -330,6 +353,7 @@ app.get("/home", async (req, res) => {
     await res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
+        return;
     }
     res.sendFile("/etc/nginx/project/ui/home.html");
 });
