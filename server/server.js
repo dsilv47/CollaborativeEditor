@@ -34,7 +34,7 @@ mongo.connect("mongodb://localhost:27017", { useNewUrlParser: true, useUnifiedTo
 
 
 app.get("/", (req, res) => {
-    if (req.session.user) {
+    if (req.session.name) {
         //app.use(express.static("/etc/nginx/project/build"));
         //res.sendFile("/etc/nginx/project/build/index.html");
         res.redirect("/home");
@@ -46,7 +46,7 @@ app.get("/", (req, res) => {
 
 app.get("/library/crdt.js", async (req, res) => {
     await res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     app.use(express.static("/etc/nginx/project/library/dist"));
@@ -54,7 +54,7 @@ app.get("/library/crdt.js", async (req, res) => {
 });
 
 app.get("/api/connect/:id", (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     res.writeHead(200, {
@@ -74,16 +74,41 @@ app.get("/api/connect/:id", (req, res) => {
     docContents = Array.from(docContents);
     docList[req.params.id].resObjs.push(res);
     res.write("data: " + JSON.stringify(docContents) + "\n\n");
+
+    let cursors = docList[req.params.id].cursors;
+    for (let cursorKey in cursors) {
+        let cursorObj = cursors[cursorKey];
+        res.write("event: presence\n");
+        let obj = {
+            session_id: cursorObj.session_id,
+            name: cursorObj.name,
+            cursor: cursorObj.cursor
+        }
+        res.write("data: " + JSON.stringify(obj) + "\n\n");
+    }
     
     res.on("close", function() {
         if (docList[req.params.id]) {
             docList[req.params.id].resObjs = docList[req.params.id].resObjs.filter(item => item != res);
+            if (docList[req.params.id].cursors[req.session.id]) {
+                delete docList[req.params.id].cursors[req.session.id];
+            }
+            let obj = {
+                session_id: req.session.id,
+                name: req.session.name,
+                cursor: {}
+            };
+            for (let i = 0; i < docList[req.params.id].resObjs.length; i++) {
+                let resObj = docList[req.params.id].resObjs[i];
+                resObj.write("event: presence\n");
+                resObj.write("data: " + JSON.stringify(obj) + "\n\n");
+            }
         }
     });
 });
 
 app.post("/api/op/:id", (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let update = req.body;
@@ -101,10 +126,34 @@ app.post("/api/op/:id", (req, res) => {
 });
 
 app.post("/api/presence/:id", (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
+    let { index, length } = req.body;
+    let obj = {
+        session_id: req.session.id,
+        name: req.session.name,
+        cursor: {
+            index: index,
+            length: length
+        }
+    };
+    if (docList[req.params.id]) {
+        let cursors = docList[req.params.id].cursors;
+        if (cursors[req.session.id]) {
+            cursors[req.session.id].cursor = {index: index, length: length};
+        }
+        else {
+            cursors[req.session.id] = obj;
+        }
 
+        for (let i = 0; i < docList[req.params.id].resObjs.length; i++) {
+            let resObj = docList[req.params.id].resObjs[i];
+            resObj.write("event: presence\n");
+            resObj.write("data: " + JSON.stringify(obj) + "\n\n");
+        }
+    }
+    res.json({"status":"ok"});
 });
 
 app.get("/users/signup", (req, res) => {
@@ -119,9 +168,8 @@ app.post("/users/signup", async (req, res) => {
         return;
     }
     try {
-        let dupeUsername = await users.findOne({ name: name });
         let dupeEmail = await users.findOne({ email: email });
-        if (dupeUsername || dupeEmail) {
+        if (dupeEmail) {
             res.json({error: true, message: "Duplicate User"});
             return;
         }
@@ -153,7 +201,8 @@ app.post("/users/login", async (req, res) => {
         return;
     }
 
-    req.session.user = user.name;
+    req.session.name = user.name;
+    req.session.id = user.email;
 
     res.cookie('name', user.name);
     res.json({ name: user.name });
@@ -182,25 +231,25 @@ app.get("/users/verify", async (req, res) => {
 
 function sendEmail(email, key) {
     let emailLink = "http://veed.cse356.compas.cs.stonybrook.edu/users/verify?email=" + encodeURIComponent(email) + "&key=" + key;
-    /*let command = "echo \"" + emailLink + "\" | mail -s \"Verify Your Stony Docs Account\" --encoding=quoted-printable " + email;
-    exec(command);*/
-    console.log(emailLink);
+    let command = "echo \"" + emailLink + "\" | mail -s \"Verify Your Stony Docs Account\" --encoding=quoted-printable " + email;
+    exec(command);
+    //console.log(emailLink);
 }
 
 app.post("/collection/create", async (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let { name } = req.body;
     let ydoc = new Y.Doc();
     let ytext = ydoc.getText(name);
     let docID = Math.random().toString().slice(2,11);
-    docList[docID] = { "docID": docID, "name": name, "crdtObj": ydoc, "resObjs": [], "lastModified": new Date() };
+    docList[docID] = { "docID": docID, "name": name, "crdtObj": ydoc, "resObjs": [], "cursors": {}, "lastModified": new Date() };
     res.json({id: docID});
 });
 
 app.post("/collection/delete", async (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let { id } = req.body;
@@ -215,7 +264,7 @@ app.post("/collection/delete", async (req, res) => {
 });
 
 app.get("/collection/list", async (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let sortDocs = [];
@@ -237,7 +286,7 @@ app.get("/media/upload", (req, res) => {
 });
 
 app.post("/media/upload", upload.single('file'), async (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let file = req.file;
@@ -248,7 +297,7 @@ app.post("/media/upload", upload.single('file'), async (req, res) => {
 });
 
 app.get("/media/access/:mediaid", async (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     let mediaid = req.params.mediaid;
@@ -256,7 +305,7 @@ app.get("/media/access/:mediaid", async (req, res) => {
 });
 
 app.get("/edit/:id", (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     app.use(express.static("/etc/nginx/project/build"));
@@ -265,7 +314,7 @@ app.get("/edit/:id", (req, res) => {
 
 app.get("/home", async (req, res) => {
     await res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
-    if (!req.session.user) {
+    if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
     }
     res.sendFile("/etc/nginx/project/ui/home.html");
