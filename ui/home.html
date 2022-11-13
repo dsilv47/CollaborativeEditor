@@ -90,6 +90,7 @@
             xhr.onload = function() {
                 let response = JSON.parse(xhr.response);
                 let suggResDiv = document.getElementById("suggestresults");
+                suggResDiv.innerHTML = '';
                 for (let i = 0; i < response.length; i++) {
                     let suggRes = response[i];
                     suggResDiv.innerHTML += suggRes + ", ";
