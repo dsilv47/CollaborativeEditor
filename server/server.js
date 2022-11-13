@@ -423,5 +423,33 @@ app.get("/index/search", async (req, res) => {
 
 app.get("/index/suggest", async (req, res) => {
     let { q } = req.query;
-    res.json({status: "ok"});
+    const suggestRes = await es.search({
+        index: 'project',
+        body: {
+            query: {
+                fuzzy: {
+                    contents: {
+                        value: q,
+                        fuzziness: "AUTO:3,5"
+                    }
+                }
+            },
+            highlight: {
+                fragment_size: q.length+1,
+                fields: {
+                    contents: {}
+                }
+            }
+        }
+    });
+    let hitsArray = suggestRes.hits.hits;
+    hitsArray = hitsArray.sort((a, b) => b.score-a.score);
+    let suggestions = [];
+    for (let i in hitsArray) {
+        let hitsArrayItem = hitsArray[i];
+        let filtered = hitsArrayItem.highlight.contents[0];
+        let suggestion = filtered.substring(filtered.indexOf("<em>")+"<em>".length, filtered.indexOf("</em>"));
+        suggestions.push(suggestion);
+    }
+    res.json(suggestions);
 });
