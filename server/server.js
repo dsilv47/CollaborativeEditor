@@ -392,9 +392,17 @@ app.get("/index/search", async (req, res) => {
     let { q } = req.query;
     const searchRes = await es.search({
         index: 'project',
-        query: {
-            match: {
-                contents: q
+        body: {
+            query: {
+                match: {
+                    contents: q
+                }
+            },
+            highlight: {
+                fragment_size: 100,
+                fields: {
+                    contents: {}
+                }
             }
         }
     });
@@ -406,7 +414,7 @@ app.get("/index/search", async (req, res) => {
         let condensed = {
             docid: hitsArrayItem.docID,
             name: hitsArrayItem.name,
-            snippet: hitsArrayItem.contents,
+            snippet: hitsArray[i].highlight.contents,
         };
         docs.push(condensed);
     }
