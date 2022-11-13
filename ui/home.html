@@ -61,6 +61,37 @@
             });
             location.reload();
         }
+
+        async function search() {
+            let xhr = new XMLHttpRequest();
+            let url = "/index/search?q=" + document.getElementById("searchbar").value;
+            xhr.open('get', url);
+            xhr.send();
+
+            xhr.onload = function() {
+                let response = JSON.parse(xhr.response);
+                let searchResDiv = document.getElementById("searchresults");
+                searchResDiv.innerHTML = '';
+                for (let i = 0; i < response.length; i++) {
+                    let searchRes = response[i];
+                    let searchResChild = document.createElement('div');
+                    searchResChild.innerHTML = "NAME: " + searchRes.name + ", SNIPPET: " + searchRes.snippet;
+                    searchResDiv.appendChild(searchResChild);
+                }
+            }
+        }
+
+        async function suggest() {
+            let xhr = new XMLHttpRequest();
+            let url = "/index/suggest?q=" + document.getElementById("suggestbar").value;
+            xhr.open('get', url);
+            xhr.send();
+
+            xhr.onload = function() {
+                let response = JSON.parse(xhr.response);
+                console.log(response);
+            }
+        }
     </script>
 </head>
 <body>
@@ -79,6 +110,12 @@
     <div id="edit-7"></div>
     <div id="edit-8"></div>
     <div id="edit-9"></div>
+    <input type="text" id="searchbar" name="searchbar">
+    <input type="button" value="Search" onclick="search()"></input><br>
+    <div id="searchresults"></div><br>
+    <input type="text" id="suggestbar" name="suggestbar">
+    <input type="button" value="Suggest" onclick="suggest()"></input><br>
+    <div id="suggestresults"></div><br>
     <input type="button" value="Log Out" onclick="logOut()">
 </body>
 </html>

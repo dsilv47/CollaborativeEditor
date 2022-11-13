@@ -19,6 +19,7 @@ const upload = multer({
 });
 const Y = require('yjs');
 const fs = require('fs');
+const { Client } = require('@elastic/elasticsearch');
 const app = express();
 app.listen(3000);
 
@@ -47,6 +48,10 @@ mongo.connect("mongodb://localhost:27017", { useNewUrlParser: true, useUnifiedTo
         collections = db.collection("collections");
 	}
 );
+
+const es = new Client({
+    node: 'http://localhost:9200'
+});
 
 
 
@@ -128,7 +133,7 @@ app.get("/api/connect/:id", (req, res) => {
     });
 });
 
-app.post("/api/op/:id", (req, res) => {
+app.post("/api/op/:id", async (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
@@ -143,6 +148,26 @@ app.post("/api/op/:id", (req, res) => {
             resObj.write("event: update\n");
             resObj.write("data: " + JSON.stringify(update) + "\n\n");
         }
+        let docExistsAlready = await es.exists({
+            index: 'project',
+            id: docList[req.params.id].docID
+        });
+        if (docExistsAlready) {
+            await es.delete({
+                index: 'project',
+                id: docList[req.params.id].docID
+            });
+        }
+        await es.index({
+            index: 'project',
+            id: docList[req.params.id].docID,
+            document: {
+                docID: docList[req.params.id].docID,
+                name: docList[req.params.id].name,
+                contents: ydoc.getText('doc-contents').toString()
+            }
+        });
+        await es.indices.refresh({index: 'project'});
     }
     res.json({"status":"ok"});
 });
@@ -280,7 +305,7 @@ app.post("/collection/create", (req, res) => {
     res.json({id: docID});
 });
 
-app.post("/collection/delete", (req, res) => {
+app.post("/collection/delete", async (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
@@ -291,6 +316,10 @@ app.post("/collection/delete", (req, res) => {
             let resObj = docList[id].resObjs[i];
             resObj.end();
         }
+        await es.delete({
+            index: 'project',
+            id: id
+        });
         delete docList[id];
     }
     res.json({status: "OK"});
@@ -357,4 +386,34 @@ app.get("/home", async (req, res) => {
         return;
     }
     res.sendFile("/etc/nginx/project/ui/home.html");
+});
+
+app.get("/index/search", async (req, res) => {
+    let { q } = req.query;
+    const searchRes = await es.search({
+        index: 'project',
+        query: {
+            match: {
+                contents: q
+            }
+        }
+    });
+    let hitsArray = searchRes.hits.hits;
+    hitsArray = hitsArray.sort((a, b) => b.score-a.score);
+    let docs = [];
+    for (let i = 0; i < Math.min(10, hitsArray.length); i++) {
+        let hitsArrayItem = hitsArray[i]._source;
+        let condensed = {
+            docid: hitsArrayItem.docID,
+            name: hitsArrayItem.name,
+            snippet: hitsArrayItem.contents,
+        };
+        docs.push(condensed);
+    }
+    res.json(docs);
+});
+
+app.get("/index/suggest", async (req, res) => {
+    let { q } = req.query;
+    res.json({status: "ok"});
 });
