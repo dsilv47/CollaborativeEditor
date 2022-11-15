@@ -1,0 +1,31 @@
+PUT /project
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "filter_stemmer": {
+          "type": "stemmer",
+          "language": "english"
+        }
+      },
+      "analyzer": {
+        "tags_analyzer": {
+          "type": "custom",
+          "filter": [
+            "stop",
+            "filter_stemmer"
+          ],
+          "tokenizer": "standard"
+        }
+      }
+    }
+  },
+  "mappings": {
+      "properties": {
+        "contents": {
+          "analyzer": "tags_analyzer",
+          "type": "text"
+        }
+      }
+  }
+}

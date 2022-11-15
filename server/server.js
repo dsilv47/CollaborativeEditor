@@ -389,6 +389,10 @@ app.get("/home", async (req, res) => {
 });
 
 app.get("/index/search", async (req, res) => {
+    if (!req.session.name) {
+        res.json({error: true, message: "INVALID SESSION!"});
+        return;
+    }
     let { q } = req.query;
     const searchRes = await es.search({
         index: 'project',
@@ -422,6 +426,10 @@ app.get("/index/search", async (req, res) => {
 });
 
 app.get("/index/suggest", async (req, res) => {
+    if (!req.session.name) {
+        res.json({error: true, message: "INVALID SESSION!"});
+        return;
+    }
     let { q } = req.query;
     const suggestRes = await es.search({
         index: 'project',
