@@ -113,7 +113,7 @@ app.get("/api/connect/:id", (req, res) => {
         res.write("data: " + JSON.stringify(obj) + "\n\n");
     }
     
-    res.on("close", function() {
+    res.once("close", function() {
         if (docList[req.params.id]) {
             docList[req.params.id].resObjs = docList[req.params.id].resObjs.filter(item => item != res);
             if (docList[req.params.id].cursors[req.session.email]) {
@@ -130,6 +130,7 @@ app.get("/api/connect/:id", (req, res) => {
                 resObj.write("data: " + JSON.stringify(obj) + "\n\n");
             }
         }
+        res.end();
     });
 });
 
