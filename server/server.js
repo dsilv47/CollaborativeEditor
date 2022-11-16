@@ -148,16 +148,10 @@ app.post("/api/op/:id", async (req, res) => {
             resObj.write("event: update\n");
             resObj.write("data: " + JSON.stringify(update) + "\n\n");
         }
-        let docExistsAlready = await es.exists({
-            index: 'project',
-            id: docList[req.params.id].docID
-        });
-        if (docExistsAlready) {
-            await es.delete({
+        await es.delete({
                 index: 'project',
                 id: docList[req.params.id].docID
-            });
-        }
+            }, {ignore: [404]});
         await es.index({
             index: 'project',
             id: docList[req.params.id].docID,
@@ -253,7 +247,6 @@ app.post("/users/login", async (req, res) => {
     req.session.email = user.email;
     req.session.save();
 
-    res.cookie('name', user.name);
     res.json({ name: user.name });
 });
 
@@ -293,6 +286,9 @@ function sendEmail(email, key) {
 }
 
 app.post("/collection/create", (req, res) => {
+    console.log("CREATE");
+    console.log(req.headers);
+    console.log(req.session);
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
@@ -317,15 +313,18 @@ app.post("/collection/delete", async (req, res) => {
             resObj.end();
         }
         await es.delete({
-            index: 'project',
-            id: id
-        });
+                index: 'project',
+                id: id
+            },{ignore: [404]});
         delete docList[id];
     }
     res.json({status: "OK"});
 });
 
 app.get("/collection/list", (req, res) => {
+    console.log("LIST");
+    console.log(req.headers);
+    console.log(req.session);
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
