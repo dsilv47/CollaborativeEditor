@@ -22,6 +22,8 @@ const fs = require('fs');
 const { Client } = require('@elastic/elasticsearch');
 const app = express();
 app.listen(3000);
+require('events').EventEmitter.prototype._maxListeners = 1000;
+require('events').defaultMaxListeners = 1000;
 
 let docList = {};
 
@@ -70,10 +72,10 @@ app.get("/", (req, res) => {
 
 app.get("/library/crdt.js", async (req, res) => {
     await res.setHeader("X-CSE356", "6306d53f58d8bb3ef7f6be55");
-    if (!req.session.name) {
+    /*if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
-    }
+    }*/
     app.use(express.static("/etc/nginx/project/library/dist"));
     res.sendFile("/etc/nginx/project/library/dist/crdt.js");
 });
