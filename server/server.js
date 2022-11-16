@@ -350,7 +350,7 @@ app.post("/media/upload", upload.single('file'), (req, res) => {
         return;
     }
     let file = req.file;
-    if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
+    if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg' && file.mimetype !== 'image/gif') {
         res.json({error: true, message: "Invalid MIME type"});
         return;
     }
