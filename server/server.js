@@ -286,9 +286,6 @@ function sendEmail(email, key) {
 }
 
 app.post("/collection/create", (req, res) => {
-    console.log("CREATE");
-    console.log(req.headers);
-    console.log(req.session);
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
@@ -322,9 +319,6 @@ app.post("/collection/delete", async (req, res) => {
 });
 
 app.get("/collection/list", (req, res) => {
-    console.log("LIST");
-    console.log(req.headers);
-    console.log(req.session);
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
