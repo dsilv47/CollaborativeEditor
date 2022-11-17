@@ -136,7 +136,7 @@ app.get("/api/connect/:id", (req, res) => {
     });
 });
 
-app.post("/api/op/:id", async (req, res) => {
+app.post("/api/op/:id", (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
@@ -151,7 +151,7 @@ app.post("/api/op/:id", async (req, res) => {
             resObj.write("event: update\n");
             resObj.write("data: " + JSON.stringify(update) + "\n\n");
         }
-        await es.delete({
+        /*await es.delete({
                 index: 'project',
                 id: docList[req.params.id].docID
             }, {ignore: [404]});
@@ -164,7 +164,7 @@ app.post("/api/op/:id", async (req, res) => {
                 contents: ydoc.getText('doc-contents').toString()
             }
         });
-        await es.indices.refresh({index: 'project'});
+        await es.indices.refresh({index: 'project'});*/
     }
     res.json({"status":"ok"});
 });
@@ -390,6 +390,22 @@ app.get("/index/search", async (req, res) => {
         return;
     }
     let { q } = req.query;
+    for (let docKey in docList) {
+        await es.delete({
+                index: 'project',
+                id: docList[docKey].docID
+            }, {ignore: [404]});
+        await es.index({
+            index: 'project',
+            id: docList[docKey].docID,
+            document: {
+                docID: docList[docKey].docID,
+                name: docList[docKey].name,
+                contents: docList[docKey].crdtObj.getText('doc-contents').toString()
+            }
+        });
+    }
+    await es.indices.refresh({index: 'project'});
     const searchRes = await es.search({
         index: 'project',
         body: {
@@ -427,6 +443,22 @@ app.get("/index/suggest", async (req, res) => {
         return;
     }
     let { q } = req.query;
+    for (let docKey in docList) {
+        await es.delete({
+                index: 'project',
+                id: docList[docKey].docID
+            }, {ignore: [404]});
+        await es.index({
+            index: 'project',
+            id: docList[docKey].docID,
+            document: {
+                docID: docList[docKey].docID,
+                name: docList[docKey].name,
+                contents: docList[docKey].crdtObj.getText('doc-contents').toString()
+            }
+        });
+    }
+    await es.indices.refresh({index: 'project'});
     const suggestRes = await es.search({
         index: 'project',
         body: {
