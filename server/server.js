@@ -391,10 +391,10 @@ app.get("/index/search", async (req, res) => {
     }
     let { q } = req.query;
     for (let docKey in docList) {
-        await es.delete({
+        /*await es.delete({
                 index: 'project',
                 id: docList[docKey].docID
-            }, {ignore: [404]});
+            }, {ignore: [404]});*/
         await es.index({
             index: 'project',
             id: docList[docKey].docID,
@@ -430,7 +430,7 @@ app.get("/index/search", async (req, res) => {
         let condensed = {
             docid: hitsArrayItem.docID,
             name: hitsArrayItem.name,
-            snippet: hitsArray[i].highlight.contents,
+            snippet: hitsArray[i].highlight.contents.join(' '),
         };
         docs.push(condensed);
     }
@@ -444,10 +444,10 @@ app.get("/index/suggest", async (req, res) => {
     }
     let { q } = req.query;
     for (let docKey in docList) {
-        await es.delete({
+        /*await es.delete({
                 index: 'project',
                 id: docList[docKey].docID
-            }, {ignore: [404]});
+            }, {ignore: [404]});*/
         await es.index({
             index: 'project',
             id: docList[docKey].docID,
