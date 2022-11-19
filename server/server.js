@@ -21,11 +21,15 @@ const Y = require('yjs');
 const fs = require('fs');
 const { Client } = require('@elastic/elasticsearch');
 const app = express();
+const Memcached = require('memcached');
 app.listen(3000);
 require('events').EventEmitter.prototype._maxListeners = 1000;
 require('events').defaultMaxListeners = 1000;
 
 let docList = {};
+
+let searchCache = {};
+let suggestCache = {};
 
 let db, users, collections;
 
@@ -52,9 +56,11 @@ mongo.connect("mongodb://localhost:27017", { useNewUrlParser: true, useUnifiedTo
 );
 
 const es = new Client({
-    node: 'http://localhost:9200'
+    node: 'http://209.94.56.99:9200'
 });
 
+/*const mc = new Memcached("localhost:11211");
+const mc2 = new Memcached("209.94.56.99:11211");*/
 
 
 
@@ -384,12 +390,34 @@ app.get("/home", async (req, res) => {
     res.sendFile("/etc/nginx/project/ui/home.html");
 });
 
+/*const verifyCacheSearch = (req, res, next) => {
+    if (!req.session.name) {
+        res.json({error: true, message: "INVALID SESSION!"});
+        return;
+    }
+    const { q } = req.query;
+    let qkey = q.split(' ').join('_');
+    mc.get(qkey, (err, val) => {
+        if (err) throw err;
+        if (val !== null) {
+        setTimeout(function() {res.json(JSON.parse(val))}, 100);
+        return;
+        } else {
+        return next();
+        }
+    });
+};*/
+
 app.get("/index/search", async (req, res) => {
     if (!req.session.name) {
         res.json({error: true, message: "INVALID SESSION!"});
         return;
     }
     let { q } = req.query;
+    let qkey = q.split(' ').join('_');
+    if (searchCache[qkey]) {
+        return res.json(searchCache[qkey]);
+    }
     for (let docKey in docList) {
         /*await es.delete({
                 index: 'project',
@@ -434,8 +462,28 @@ app.get("/index/search", async (req, res) => {
         };
         docs.push(condensed);
     }
+    //await mc.set(qkey, JSON.stringify(docs));
+    searchCache[qkey] = docs;
     res.json(docs);
 });
+
+/*const verifyCacheSuggest = (req, res, next) => {
+    if (!req.session.name) {
+        res.json({error: true, message: "INVALID SESSION!"});
+        return;
+    }
+    const { q } = req.query;
+    let qkey = q.split(' ').join('_');
+    mc2.get(qkey, (err, val) => {
+        if (err) throw err;
+        if (val !== null) {
+        setTimeout(function() {res.json(JSON.parse(val))}, 100);
+        return;
+        } else {
+        return next();
+        }
+    });
+};*/
 
 app.get("/index/suggest", async (req, res) => {
     if (!req.session.name) {
@@ -443,6 +491,10 @@ app.get("/index/suggest", async (req, res) => {
         return;
     }
     let { q } = req.query;
+    let qkey = q.split(' ').join('_');
+    if (suggestCache[qkey]) {
+        return res.json(suggestCache[qkey]);
+    }
     for (let docKey in docList) {
         /*await es.delete({
                 index: 'project',
@@ -487,5 +539,7 @@ app.get("/index/suggest", async (req, res) => {
         let suggestion = filtered.substring(filtered.indexOf("<em>")+"<em>".length, filtered.indexOf("</em>"));
         suggestions.push(suggestion);
     }
+    //await mc2.set(qkey, JSON.stringify(docs));
+    suggestCache[qkey] = suggestions;
     res.json(suggestions);
 });
